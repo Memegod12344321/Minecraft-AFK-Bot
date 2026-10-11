@@ -1,6 +1,16 @@
 {
-  "serverHost": "MemegodSmp.aternos.me",
+  "serverHost": "Memegodsmp.aternos.me",
   "serverPort": 25878,
   "botUsername": "247bot",
-  "botChunk": 1
+  "botChunk": 1,
+  "version": false,
+  "auth": {
+    "mode": "offline"
+  },
+  "autoReconnect": true,
+  "reconnectDelayMs": 10000,
+  "authMe": {
+    "enabled": false,
+    "password": ""
+  }
 }
