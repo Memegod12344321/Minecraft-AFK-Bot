@@ -5,10 +5,13 @@ let bot;
 let reconnectTimer;
 let movementTimer;
 let reconnecting = false;
-let movementPhase = 0;
 
-const STEP_INTERVAL = 1500;
-const JUMP_DURATION = 500;
+function stopMovement() {
+  if (!bot) return;
+  for (const control of ['forward', 'back', 'left', 'right', 'jump', 'sprint', 'sneak']) {
+    bot.setControlState(control, false);
+  }
+}
 
 function connect() {
   console.log(`Connecting to ${config.serverHost}:${config.serverPort} as ${config.botUsername}...`);
@@ -26,7 +29,6 @@ function connect() {
     reconnecting = false;
     console.log(`✅ ${config.botUsername} connected to MemeGodSMP!`);
 
-    // Optional AuthMe support. Enable it in config.json only if your server requires it.
     const authMe = config.authMe || {};
     if (authMe.enabled && authMe.password) {
       setTimeout(() => {
@@ -38,12 +40,8 @@ function connect() {
       }, 1500);
     }
 
-    setTimeout(() => {
-      if (bot && bot.entity) bot.setControlState('sneak', true);
-    }, 3000);
-
     clearTimeout(movementTimer);
-    movementTimer = setTimeout(movementCycle, STEP_INTERVAL);
+    movementTimer = setTimeout(movementCycle, 1000);
   });
 
   bot.on('kicked', reason => console.log('⚠️ Kicked:', reason));
@@ -51,6 +49,8 @@ function connect() {
   bot.on('end', () => {
     console.log('⛔ Bot disconnected.');
     clearTimeout(movementTimer);
+    stopMovement();
+
     if (config.autoReconnect && !reconnecting) {
       reconnecting = true;
       clearTimeout(reconnectTimer);
@@ -61,37 +61,40 @@ function connect() {
   });
 }
 
+// Vary walking, strafing, turning, pausing, and jumping so the bot
+// does not repeat the same forward/back/jump pattern every few seconds.
 function movementCycle() {
   if (!bot || !bot.entity) return;
 
-  switch (movementPhase) {
-    case 0:
-      bot.setControlState('forward', true);
-      bot.setControlState('back', false);
-      bot.setControlState('jump', false);
-      break;
-    case 1:
-      bot.setControlState('forward', false);
-      bot.setControlState('back', true);
-      bot.setControlState('jump', false);
-      break;
-    case 2:
-      bot.setControlState('forward', false);
-      bot.setControlState('back', false);
-      bot.setControlState('jump', true);
-      setTimeout(() => {
-        if (bot && bot.entity) bot.setControlState('jump', false);
-      }, JUMP_DURATION);
-      break;
-    default:
-      bot.setControlState('forward', false);
-      bot.setControlState('back', false);
-      bot.setControlState('jump', false);
-      break;
-  }
+  stopMovement();
 
-  movementPhase = (movementPhase + 1) % 4;
-  movementTimer = setTimeout(movementCycle, STEP_INTERVAL);
+  const action = Math.random();
+  const yawChange = (Math.random() - 0.5) * 1.8;
+  const pitchChange = (Math.random() - 0.5) * 0.18;
+  const yaw = bot.entity.yaw + yawChange;
+  const pitch = Math.max(-0.35, Math.min(0.35, bot.entity.pitch + pitchChange));
+
+  bot.look(yaw, pitch, true).catch(() => {});
+
+  if (action < 0.58) {
+    bot.setControlState('forward', true);
+    if (Math.random() < 0.18) bot.setControlState('sprint', true);
+    if (Math.random() < 0.22) bot.setControlState(Math.random() < 0.5 ? 'left' : 'right', true);
+  } else if (action < 0.76) {
+    bot.setControlState(Math.random() < 0.5 ? 'left' : 'right', true);
+    if (Math.random() < 0.6) bot.setControlState('forward', true);
+  } else if (action < 0.9) {
+    bot.setControlState('back', true);
+  } else if (action < 0.97) {
+    bot.setControlState('forward', true);
+    bot.setControlState('jump', true);
+    setTimeout(() => {
+      if (bot && bot.entity) bot.setControlState('jump', false);
+    }, 350);
+  }
+  // Otherwise, briefly pause before choosing a new action.
+
+  movementTimer = setTimeout(movementCycle, 900 + Math.floor(Math.random() * 1700));
 }
 
 connect();
